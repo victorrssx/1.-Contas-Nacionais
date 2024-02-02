@@ -1,23 +1,29 @@
 ---
-title: "PIB do Brasil cresce 0.15% no 3º Trimestre de 2023"
+title: "PIB do Brasil cresce 0.1% no 3º Trimestre de 2023"
 author: "Victor Líbera"
 lang: pt
 date: last-modified
 
 format: 
   html:
+  
     fig-width: 12 
     fig-height: 7
+    
     html-table-processing: none
+    
     toc: true
+    toc-depth: 4
+    toc-expand: 4
     toc-location: left
+    
     theme: united
     fontcolor: black
     mainfont: Arial Nova;
     grid:
-      sidebar-width: 170px
+      sidebar-width: 250px
       body-width: 1270px
-      margin-width: 170px
+      margin-width: 90px
       gutter-width: 1.5rem
     geometry:
       - top = 400mm
@@ -30,10 +36,15 @@ editor: visual
 #| include: false
 
 # Importando dados tratados
+extrafont::loadfonts(device = "win")
 source("Contas Nacionais - Quarto.R")
 ```
 
 ```{css, echo = FALSE}
+
+#title-block-header.quarto-title-block.default .quarto-title-meta-heading {
+    text-transform: none;
+}
 
 .justify {
   text-align: justify !important
@@ -52,36 +63,143 @@ h1.title, .title.h1 {
     text-align: center;
 }
 
+.page-columns .column-screen-inset {
+    grid-column: body-content-start/body-content-end;
+}
+
 gt_table, .gt_table {
     table-layout: auto !important;
-    width: 870px !important;
+    width: auto !important;
 } 
 
 quarto-light, body {
     text-align: justify
 }
+
+gt_table, .gt_title {
+    font-size: 20px
+}
 ```
 
-## Resumo Geral
+## Resumo
 
-No `r ordinais_masc[as.numeric(tri_atual_num)]` trimestre de `r ano_atual`, o Produto Interno Bruto (PIB) brasileiro `r texto_crescim(valor("PIB (pm)", "QoQ"), 1)` `r valor("PIB (pm)", "QoQ")`% em relação ao trimestre anterior, na série livre de influências sazonais. Este é o `r texto_posicao("PIB (pm)", "QoQ", "M")` consecutivo nessa estatística. Na comparação com o mesmo trimestre de `r ano_anter`, houve expansão de `r valor("PIB (pm)", "YoY")`% (`r texto_posicao("PIB (pm)", "YoY", "F")` consecutiva) e, no acumulado em 12 meses, o crescimento foi de `r valor("PIB (pm)", "12m")`% (`r texto_posicao("PIB (pm)", "12m", "F")` consecutiva). O resultado do `r ordinais_masc[as.numeric(tri_atual_num)]` trimestre surpreendeu `r focus(tri_atual_num, 1)`, ficando `r focus(tri_atual_num, 2)` das expectativas na leitura interanual (`r expec_focus`%, Focus/BCB).
+No `r ordinais_masc[as.numeric(tri_atual_num)]` trimestre de `r ano_atual`, o Produto Interno Bruto (PIB) brasileiro `r texto_crescim(valor("PIB (pm)", "QoQ"), 1)` `r valor("PIB (pm)", "QoQ")`% em relação ao trimestre anterior (QoQ), na série livre de influências sazonais. Este é o `r texto_posicao("PIB (pm)", "QoQ", "M")` consecutivo nessa estatística. Na comparação com o mesmo trimestre de `r ano_anter` (YoY), houve expansão de `r valor("PIB (pm)", "YoY")`% (`r texto_posicao("PIB (pm)", "YoY", "F")` consecutiva) e, no acumulado em 12 meses, crescimento de `r valor("PIB (pm)", "12m")`% (`r texto_posicao("PIB (pm)", "12m", "F")` consecutiva). Além disso, houve `r texto_crescim(valor("PIB (pm)", "YTD"), 2)` de `r valor("PIB (pm)", "YTD")`% no acumulado do ano (YTD).
 
-A Tabela 1, apresentada a seguir, sintetiza as principais variáveis do PIB brasileiro pela ótica da oferta e da demanda, observadas na comparação com o trimestre imediatamente anterior (sazonalmente ajustadas e, também, com taxas anualizadas), com o mesmo trimestre do ano anterior, em 12 meses e no acumulado do ano.
+O resultado do `r ordinais_masc[as.numeric(tri_atual_num)]` trimestre surpreendeu `r focus(tri_atual_num, 1)`, ficando `r focus(tri_atual_num, 2)` das expectativas na leitura interanual (`r expec_focus`%, Focus/BCB). **No entanto, não é robusto: na margem, representa expansão do produto de apenas 0,6% em termos anualizados. Há visível desaceleração do crescimento, comportamento natural em função da política monetária contracionista cujo ciclo de alta se encerrou apenas na parte final de 2022.** Destaca-se, no painel abaixo, como o PIB evoluiu em nível desde o início de 2011 e, também, sua evolução para cada métrica de variação percentual mencionada.
+
+::: panel-tabset
+## PIB (nível, 4T/2019 = 100)
+
+```{r}
+#| echo: false
+#| fig-width: 12 
+#| fig-height: 5
+
+  pib_tri %>% 
+    filter(setores_e_subsetores == "PIB (pm)",
+           substr(trimestre, 4, 7) %in% 2011:2024,
+           variavel == c("Número-índice")) %>%
+    ungroup() %>%
+    mutate(trimestre = factor(fct_reorder(trimestre, mes), ordered = T),
+           valor_base2019 = valor / valor[trimestre == "4T/2019"] * 100,
+           tooltip = glue('{round(valor_base2019, 1)} \n {trimestre}')) %>%
+    
+  {ggplot(., aes(x = trimestre, y = valor_base2019, group = 1)) +
+      
+      ggforce::geom_link2(aes(colour = after_stat(ifelse(y > 100, "Maior", "Menor"))), linewidth = 1) +
+      scale_color_manual(values = c("#007a5b", "#B03A2E")) +
+      geom_vline(xintercept = c("1T/2015", "1T/2020"), colour = "grey", linetype = "dashed") +
+      geom_hline(yintercept = 100, linewidth = 0.6, colour = "black") +
+      
+      ggnewscale::new_scale_color() +
+      geom_point_interactive(aes(colour = after_stat(ifelse(y >= 100, "Maior", "Menor")), data_id = valor_base2019, tooltip = tooltip), size = 4) +
+      scale_color_manual(values = c("#007a5b", "#B03A2E")) +
+      
+      ggnewscale::new_scale_color() +
+      geom_point(aes(x = "4T/2019", y = 100), 
+                                #data_id = valor_base2019, tooltip = tooltip), 
+                             colour = "black", size = 4) +
+      
+      annotate("richtext", x = "4T/2015", y = 91.5, size = 5.5, fill = "white", label.color = NA, label = "Crise <br> de 2015", family = "Arial Nova") + 
+      annotate("richtext", x = "2T/2021", y = 91.5, size = 5.5, fill = "white", label.color = NA, label = "Pandemia <br> Covid-19", family = "Arial Nova") + 
+      
+      scale_x_discrete(breaks = c(as.character(min(.$trimestre)), as.character(max(.$trimestre)), "1T/2015", "1T/2020"), labels = \(.x) gsub("/", "\n", .x), expand = expansion(mult = c(0, .1))) +
+      labs(x = "", y = "", colour = "") +
+      
+      theme(text = element_text(family = "Arial Nova"),
+            plot.title = element_markdown(size = 23),
+            plot.subtitle = element_markdown(size = 15, margin = margin(0,0,30,0)),
+            plot.background = element_blank(),
+            
+            panel.background = element_blank(),
+            panel.grid.major = element_blank(),
+            
+            axis.ticks = element_blank(),
+            axis.line = element_line(colour = "black"),
+            axis.text.y = element_text(colour = "black", size = 18, hjust = -.4),
+            axis.text.x = element_text(colour = "black", size = 18, vjust =  .4),
+            
+            legend.position = "none")} %>% 
+    
+    girafe(ggobj = .)
+```
+
+## Heatmap (var. %)
+
+```{r}
+#| echo: false
+#| fig-width: 12 
+#| fig-height: 5
+
+  pib_tri %>% 
+    filter(setores_e_subsetores == "PIB (pm)",
+           substr(trimestre, 4, 7) %in% 2011:2024,
+           !(variavel %in% c("Número-índice", "Participação", "QoQ Anualizado"))) %>%
+    ungroup() %>%
+    mutate(trimestre = factor(fct_reorder(trimestre, mes), ordered = T),
+           variavel  = fct(variavel, c("YTD", "12m", "YoY", "QoQ")),
+           tooltip   = glue('{round(valor, 1)}% \n {variavel} \n {trimestre}')) %>%
+    select(-c(mes, setores_e_subsetores)) %>% 
+    
+    {ggplot(., aes(x = trimestre, y = variavel, fill = valor)) +
+        geom_tile_interactive(aes(data_id = interaction(trimestre, variavel), tooltip = tooltip), color = "white", size = 0.7) +
+        scale_fill_gradient2(midpoint = 0, low = "#B2182B", high = "#2166AC") +
+        scale_x_discrete(breaks = c(as.character(min(.$trimestre)), as.character(max(.$trimestre)), "1T/2015", "2T/2020"), labels = \(.x) gsub("/", "\n", .x)) +
+        labs(x = "", y = "", fill = "%") +
+        theme_minimal() +
+        guides(fill = guide_colourbar(ticks = FALSE)) +
+        theme(text = element_text(family = "Arial Nova"), 
+              axis.text.y = element_text(colour = "black", size = 18, hjust = -.4),
+              axis.text.x = element_text(colour = "black", size = 18, vjust =  .4),
+              panel.grid = element_blank(),
+              legend.text = element_markdown(size = 15),
+              legend.title = element_markdown(size = 15))} %>%
+    
+girafe(ggobj = .,
+       options = opts_tooltip(opacity = 0.8, use_fill = TRUE))
+```
+:::
+
+A Tabela 1, apresentada a seguir, sintetiza as principais variáveis do PIB brasileiro pela ótica da oferta e da demanda, observadas na comparação com o trimestre imediatamente anterior (sazonalmente ajustadas e, também, com taxas anualizadas), com o mesmo trimestre do ano anterior, em 12 meses e no acumulado do ano, para o trimestre em discussão. **Na margem,** **destaque para o desempenho negativo da Formação Bruta de Capital Fixo, pela demanda, e da Agropecuária, pela oferta.**
 
 ::: column-screen-inset
 ```{r}
 #| label: table-1
 #| echo: false
 
-geral %>%         
+geral %>%
+ filter(setores_e_subsetores %in% c("Agropecuária", "Indústria", "Serviços", "PIB (pm)", sub_demanda, "Valor Adicionado (pb)", "Impostos (líq. s/ prod.)")) %>% 
     
             gt(rowname_col = "setores_e_subsetores", groupname_col = NA) %>%
-            cols_hide(c(mes, trimestre)) %>% 
+            cols_hide(c(trimestre)) %>% 
             tab_header(title = md("**Tabela 1. Variação do PIB (%)**"),
                        subtitle = md(unique(.$`_data`$trimestre))) %>% 
-            tab_source_note(source_note = md("Fonte: IBGE. Elaboração própria. <br> N.C. = Não considerado.")) %>%
-            tab_spanner(label = "QoQ (SA)",
-                        columns = c(QoQ, `QoQ Anualizado`)) %>% 
+            tab_source_note(source_note = md("Fonte: IBGE. Elaboração própria. <br> Obs.: 'Participação' corresponde ao peso relativo de cada componente no PIB do trimestre anterior. <br> N.C. = Não considerado.")) %>%
+            tab_spanner(label = "Sazonalmente Ajustado",
+                        columns = c(QoQ, `QoQ Anualizado`)) %>%
+  
+            tab_style(locations = cells_column_spanners(),
+                      style = cell_text(color = 'darkgrey')) %>% 
             
             tab_style(style = cell_text(weight = "bold"),
                       locations = cells_body(columns = 5)) %>%
@@ -90,14 +208,15 @@ geral %>%
                       locations = cells_body()) %>%
             
             tab_style(style = cell_text(color = "darkgrey", font = google_font("Source Sans Pro")), 
-                      locations = cells_column_labels(everything())) %>% 
+                      locations = cells_column_labels(3)) %>% 
             
             tab_style(style = cell_borders(sides = c("top"), color = "black", weight = px(2.5), style = "solid"),
-                      locations = list(cells_body(rows = c(4, 9, 11)), cells_stub(rows = c(4, 9, 11)))) %>% 
+                      locations = list(cells_body(rows = c(4, 6, 7)), cells_stub(rows = c(4, 6, 7)))) %>% 
           
             tab_style(style = cell_text(weight = "bold"),
-                      locations = list(cells_body(rows = c(9, 10, 11)), cells_stub(rows = c(9, 10, 11)))) %>% 
-            
+                      locations = list(cells_body(rows = c(4, 5, 6)), cells_stub(rows = c(4, 5, 6)))) %>% 
+                 tab_style(style = cell_text(color = "darkgrey"),
+                      locations = cells_body(columns = 3)) %>%      
             
             # text_transform(locations = cells_body(),
             # fn = function(x) {
@@ -105,22 +224,22 @@ geral %>%
             #                      x <= 0 ~ "<i class='fa fa-arrow-down '></i>"))
             # }) %>% 
             
-            opt_table_font(font = list(google_font("Lato"), default_fonts())) %>% 
+            opt_table_font(font = list("Arial Nova", default_fonts())) %>% 
             
-            tab_options(heading.title.font.size = 25,
-                        heading.subtitle.font.size = 22,
+            tab_options(heading.title.font.size = 20,
+                        heading.subtitle.font.size = 17,
                         heading.align = "left",
                         
                         table.border.top.style = "hidden",
                         heading.border.bottom.style = "hidden",
                         
-                        table.font.size = 20,
+                        table.font.size = 17,
                         
                         source_notes.border.bottom.style = "hidden",
                         source_notes.padding = px(10),
                         
                         data_row.padding = px(10)) %>%
-            fmt_number(decimals = 2) %>% 
+            fmt_number(decimals = 1) %>% 
             cols_align("center") %>%
             cols_width(stub() ~ px(300),
                        everything() ~ px(130)) %>% 
@@ -129,38 +248,148 @@ sub_missing(missing_text = "N.C.")
 ```
 :::
 
-## Ótica da Demanda
+## PIB pela Ótica da Demanda
 
--   Pela ótica da demanda (Gráfico 1), o consumo das famílias apresentou `r texto_crescim(valor("Consumo das Famílias", "QoQ"), 2)` de `r valor("Consumo das Famílias", "QoQ")`% em `r tri_atual` na comparação com `r tri_anter`. Foi a `r texto_posicao("Consumo das Famílias", "QoQ", "F")` consecutiva na margem, \[2,1\] pp \[acima\] do registrado no trimestre passado.
+```{r}
+#| echo: false
 
--   O consumo do governo apresentou \[contração\] de `r valor("Consumo do Governo", "QoQ")` % no `r tri_atual` na comparação com `r tri_anter` livre de influências sazonais. Em relação ao \[2T/2021\], houve \[crescimento\] de `r valor("Consumo do Governo", "YoY")`%.
+  pib_tri %>% 
+    filter(setores_e_subsetores %in% sub_demanda & variavel == "QoQ") %>% 
+    mutate(trimestre = factor(trimestre),
+           trimestre = fct_reorder(trimestre, mes),
+           tooltip   = glue('{round(valor, 1)}% \n {setores_e_subsetores} \n {trimestre}')) %>%
+    group_by(setores_e_subsetores) %>%
+    top_n(4, mes) %>% 
+    
+    {ggplot(., aes(x = trimestre, y = valor)) +
+        geom_col_interactive(aes(fill = trimestre, tooltip = tooltip, data_id = trimestre), width = 0.7) +
+        facet_wrap(~ setores_e_subsetores, nrow = 1, strip.position = "bottom",  labeller = label_wrap_gen(10)) +
+        geom_hline(yintercept = 0) +
+        
+        labs(#title = "**PIB pela Ótica da Demanda**",
+             subtitle = "Var. % QoQ, com aj. sazonal",
+             x = "", y = "", fill = "Trimestre") +
+        lightness(scale_fill_brewer(palette = "Blues"), scalefac(0.8)) +
+        geom_text_interactive(aes(y = valor, label = number(valor, accuracy = 0.1), vjust = ifelse(valor > 0, -0.5, 1.5), data_id = trimestre), size = 5) +
+        
+        theme(text = element_text(family = "Arial Nova"),
+              
+              plot.title = element_markdown(size = 23),
+              plot.subtitle = element_markdown(size = 15, margin = margin(0,0,30,0)),
+              plot.background = element_blank(),
+              
+              panel.background = element_blank(),
+              panel.grid.major.y = element_line(linetype = "dotdash", colour = "grey", linewidth = 1),
+              
+              strip.text = element_text(size = 15),
+              strip.background = element_rect(fill = "white"),
+              strip.background.y = element_rect(fill = "black"),
+              panel.spacing = unit(2, "lines"),
+              
+              axis.text.x = element_blank(),
+              axis.ticks.x = element_blank(),
+              axis.text.y = element_markdown(size = 15, colour = "black"),
+              
+              legend.position = c(0.8, 1.1),
+              legend.direction = "horizontal",
+              legend.title = element_blank(),
+              legend.text = element_markdown(size = 13))} %>%
+    
+    girafe(ggobj = .,
+           options = opts_tooltip(opacity = 0.8, use_fill = TRUE,
+                                  use_stroke = FALSE, css = "padding:5pt;font-family: Open Sans;font-size:1rem;color:white"),
+                     opts_hover_inv(css = "opacity:0.4"))
+```
 
--   O investimento, que vinha apresentando reversão com relação ao desempenho surpreendente da pandemia, registrou no `r tri_atual` \[crescimento\] de `r valor("FBCF", "QoQ")`% na margem. Na comparação com \[2T/2021\], houve \[crescimento\] de `r valor("Consumo do Governo", "YoY")`%. No acumulado em 12 meses, apresentaram \[crescimento\] de `r valor("Consumo do Governo", "12m")`%.
+#### Consumo das Famílias
 
--   Por fim, na parcela referente ao setor externo, as exportações no `r tri_atual` tiveram desempenho \[negativo\], \[retraindo\] `r valor("Exportação", "QoQ")`% comparado ao `r tri_anter` e `r valor("Exportação", "YoY")`% em relação ao \[2T/2021\]. Em 12 meses, o \[crescimento\] é de `r valor("Exportação", "12m")`%. Já as importações, por outro lado, tiveram \[crescimento\] de `r valor("Importação (-)", "QoQ")`% em relação ao \[segundo\] trimestre de `r ano_atual`. Na comparação interanual houve \[retração\] de `r valor("Importação (-)", "YoY")`%. No acumulado de 12 meses o resultado é \[positivo\] em `r valor("Importação (-)", "12m")`%.
+Pela ótica da demanda, o consumo das famílias apresentou `r texto_crescim(valor("Consumo das Famílias", "QoQ"), 2)` de `r valor("Consumo das Famílias", "QoQ")`% em `r tri_atual` na comparação com `r tri_anter`. Foi a `r texto_posicao("Consumo das Famílias", "QoQ", "F")` consecutiva na margem, `r pib_tri %>% filter(variavel == "QoQ", trimestre %in% c(tri_atual, tri_anter), setores_e_subsetores == "Consumo das Famílias") %>% pull(valor) %>% {.[2] - .[1]} %>% number(accuracy = 0.1)`p.p. `r texto_crescim(pib_tri %>% filter(variavel == "QoQ", trimestre %in% c(tri_atual, tri_anter), setores_e_subsetores == "Consumo das Famílias") %>% pull(valor) %>% {.[2] - .[1]} %>% number(accuracy = 0.1), 7)` do registrado no trimestre passado. Na comparação com `r tri_atual_ano_anter`, houve `r texto_crescim(valor("Consumo das Famílias", "YoY"), 3)` de `r valor("Consumo das Famílias", "YoY")`% e, no acumulado em 12 meses, `r texto_crescim(valor("Consumo das Famílias", "12m"), 3)` de `r valor("Consumo das Famílias", "12m")`%.
+
+#### Consumo do Governo
+
+O consumo do governo apresentou `r texto_crescim(valor("Consumo do Governo", "QoQ"), 3)` de `r valor("Consumo do Governo", "QoQ")`% no `r tri_atual` na comparação com `r tri_anter` livre de influências sazonais. Em relação ao `r tri_atual_ano_anter`, houve `r texto_crescim(valor("Consumo do Governo", "YoY"), 2)` de `r valor("Consumo do Governo", "YoY")`%. No acumulado em 12 meses, `r texto_crescim(valor("Consumo do Governo", "12m"), 3)` de `r valor("Consumo do Governo", "12m")`%.
+
+#### Investimento
+
+O investimento registrou, no `r tri_atual`, `r texto_crescim(valor("FBCF", "QoQ"), 3)` de `r valor("FBCF", "QoQ")`% na margem. Na comparação com `r tri_atual_ano_anter`, houve `r texto_crescim(valor("FBCF", "YoY"), 3)` de `r valor("FBCF", "YoY")`%. No acumulado em 12 meses, `r texto_crescim(valor("FBCF", "12m"), 3)` de `r valor("FBCF", "12m")`%. A taxa de investimento, que representa uma *proxy* para a futura capacidade produtiva da economia, encerrou o trimestre em `r pib_tri %>% filter(trimestre == "3T/2023" & variavel == "Participação" & setores_e_subsetores == 'FBCF') %>% pull(valor) %>% round(2)`%.
+
+::: panel-tabset
+## Taxa de Investimento (trimestral)
+
+```{r}
+#| echo: false
+
+ pib_tri %>% 
+    mutate(trimestre = factor(fct_reorder(trimestre, mes), ordered = T),
+           tooltip = glue('{round(valor, 1)}% \n {trimestre}')) %>% 
+    filter(variavel == "Participação" & setores_e_subsetores == 'FBCF' & mes >= "2011-03-01") %>% 
+    
+   {ggplot(., aes(x = trimestre, y = valor, group = 1)) +
+    #ggalt::geom_xspline(size = .5, spline_shape = -0.5, color = "#b7849f") +   
+    
+    geom_vline(xintercept = c("1T/2015", "1T/2020"), colour = "grey", linetype = "dashed") +      
+    geom_point_interactive(aes(data_id = valor, tooltip = tooltip), size = 4, fill = "#b7849f") +
+    geom_smooth(color = "#00f0bc", linewidth = 2.5, method = "loess", formula = "y ~ x", se = F) + 
+       
+    annotate("richtext", x = "4T/2015", y = 12, size = 5.5, fill = "white", label.color = NA, label = "Crise <br> de 2015", family = "Arial Nova") + 
+    annotate("richtext", x = "2T/2021", y = 12, size = 5.5, fill = "white", label.color = NA, label = "Pandemia <br> Covid-19", family = "Arial Nova") +    
+       
+       
+    scale_y_continuous(breaks = seq(0, 20, 5), limits = c(10, 22), expand = expansion(mult = c(0, .1))) +
+    scale_x_discrete(breaks = c(as.character(min(.$trimestre)), as.character(max(.$trimestre)), "1T/2015", "1T/2020"), labels = \(.x) gsub("/", "\n", .x), expand = expansion(mult = c(.05, .1))) +
+    labs(x = "", y = "", colour = "") +
+    
+    theme(text = element_text(family = "Arial Nova"),
+          plot.title = element_markdown(size = 23),
+          plot.subtitle = element_markdown(size = 15, margin = margin(0,0,30,0)),
+          plot.background = element_blank(),
+          
+          panel.background = element_blank(),
+          panel.grid.major = element_blank(),
+          
+          axis.ticks = element_blank(),
+          axis.line = element_line(colour = "black"),
+          axis.text.y = element_text(colour = "black", size = 18, hjust = -.4),
+          axis.text.x = element_text(colour = "black", size = 18, vjust =  .4),
+          
+          legend.position = "none")} %>% 
+  
+    girafe(ggobj = .)
+
+```
+:::
+
+#### Exportações e Importações
+
+Por fim, na parcela referente ao setor externo, as exportações no `r tri_atual` tiveram desempenho `r texto_crescim(valor("Exportação", "QoQ"), 4)`, `r texto_crescim(valor("Exportação", "QoQ"), 5)` `r valor("Exportação", "QoQ")`% comparado ao `r tri_anter` e `r valor("Exportação", "YoY")`% em relação ao `r tri_atual_ano_anter`. Em 12 meses, o `r texto_crescim(valor("Exportação", "12m"), 2)` é de `r valor("Exportação", "12m")`%. Já as importações, por outro lado, tiveram `r texto_crescim(valor("Importação (-)", "QoQ"), 3)` de `r valor("Importação (-)", "QoQ")`% em relação ao `r ordinais_masc[as.numeric(tri_anter_num)]` trimestre de `r ano_atual` e `r texto_crescim(valor("Importação (-)", "YoY"), 3)` de `r valor("Importação (-)", "YoY")`% na comparação interanual. No acumulado de 12 meses, o resultado é `r texto_crescim(valor("Importação (-)", "12m"), 4)` em `r valor("Importação (-)", "12m")`%.
+
+## PIB pela Ótica da Oferta
 
 ```{r}
 #| echo: false
 
 pib_tri %>% 
-            filter(setores_e_subsetores %in% sub_demanda & variavel == "QoQ Anualizado") %>% 
+            filter(setores_e_subsetores %in% c("Agropecuária", "Indústria", "Serviços") & variavel == "QoQ") %>% 
             mutate(trimestre = factor(trimestre),
-                   trimestre = fct_reorder(trimestre, mes)) %>%
+                   trimestre = fct_reorder(trimestre, mes), 
+                   tooltip   = glue('{round(valor, 1)}% \n {setores_e_subsetores} \n {trimestre}')) %>%
             group_by(setores_e_subsetores) %>%
             top_n(4, mes) %>% 
             
             {ggplot(., aes(x = trimestre, y = valor)) +
-                geom_col(aes(fill = trimestre), width = 0.7) +
+                geom_col_interactive(aes(fill = trimestre, tooltip = tooltip, data_id = trimestre), width = 0.7) +
                 facet_wrap(~ setores_e_subsetores, nrow = 1, strip.position = "bottom",  labeller = label_wrap_gen(10)) +
                 geom_hline(yintercept = 0) +
                 
-                labs(title = "**Gráfico 1. PIB pela Ótica da Demanda**",
-                     subtitle = "Var. % QoQ anualizada, com aj. sazonal",
+                labs(#title = "**PIB pela Ótica da Oferta**",
+                     subtitle = "Var. % QoQ, com aj. sazonal",
                      x = "", y = "", fill = "Trimestre") +
                 lightness(scale_fill_brewer(palette = "Blues"), scalefac(0.8)) +
-                geom_text(aes(y = valor, label = scales::number(valor, accuracy = 0.1), vjust = ifelse(valor > 0, -0.5, 1.5)), size = 5) +
+                geom_text_interactive(aes(y = valor, label = scales::number(valor, accuracy = 0.1), vjust = ifelse(valor > 0, -0.5, 1.5), data_id = trimestre), size = 5) +
                 
-                theme(plot.title = element_markdown(size = 23),
+                theme(text = element_text(family = "Arial Nova"),
+                      
+                      plot.title = element_markdown(size = 23),
                       plot.subtitle = element_markdown(size = 15, margin = margin(0,0,30,0)),
                       plot.background = element_blank(),
                       
@@ -179,60 +408,26 @@ pib_tri %>%
                       legend.position = c(0.8, 1.1),
                       legend.direction = "horizontal",
                       legend.title = element_blank(),
-                      legend.text = element_markdown(size = 13))} 
+                      legend.text = element_markdown(size = 13))} %>% 
+  
+    girafe(ggobj = .,
+           options = opts_tooltip(opacity = 0.8, use_fill = TRUE,
+                                  use_stroke = FALSE, css = "padding:5pt;font-family: Open Sans;font-size:1rem;color:white"),
+                     opts_hover_inv(css = "opacity:0.4"))
 ```
 
-## Ótica da Oferta
+#### Agropecuária
 
--   Pelo lado da oferta (Gráfico 2), a Agropecuária foi o setor com menor crescimento em relação ao 1T/2022, impactado principalmente pela queda na produção de soja em função de efeitos climáticos inesperados no centro-sul do país. Há expectativa de que a safra de soja deste ano seja 12,0% menor que a do ano passado (LSPA/IBGE, julho). Contra o mesmo trimestre de 2021, foi observada uma queda de 2,5%. No acumulado em 12 meses, o setor apresenta queda de 5,5%, sendo o único a apresentar retração.
+Pelo lado da oferta, a Agropecuária apresentou `r texto_crescim(valor("Agropecuária", "QoQ"), 6)` de `r valor("Agropecuária", "QoQ")`% m relação ao `r tri_anter`. Contra o mesmo trimestre de `r ano_anter`, foi observada `r texto_crescim(valor("Agropecuária", "12m"), 6)` de `r valor("Agropecuária", "YoY")`%. No acumulado em 12 meses, o setor apresenta `r texto_crescim(valor("Agropecuária", "12m"), 6)` de `r valor("Agropecuária", "12m")`%.
 
--   Com participação de 22% no valor adicionado de 2021, a Indústria apresentou crescimento de 2,2% no 2T/2022, segunda alta consecutiva na margem após três trimestres de resultados desfavoráveis. Houve também crescimento de 1,9% em relação ao 2T/2021, assim como leve expansão de 0,1% no acumulado em 12 meses. Decompondo por segmentos, a indústria extrativa mineral apresentou crescimento de 2,2% na margem, que veio acompanhada de queda de 4,0% na comparação com o mesmo trimestre do ano passado; ainda assim, o segmento apresenta leve variação positiva no acumulado em 12 meses. Com maior peso dentro do setor industrial, a indústria de transformação apresentou alta de 1,7% na comparação com 1T/2022, acompanhada de leve alta de 0,5% em relação ao 2T/2021. No acumulado em 12 meses, entretanto, verifica-se retração de 2,9%. O segmento de produção e distribuição de eletricidade, gás, água, esgoto e limpeza urbana (SIUP) apresentou o resultado mais expressivo, crescendo 3,1% na margem, além de 10,8% em relação ao mesmo trimestre do ano anterior e 3,7% no acumulado em 12 meses. Por fim, o segmento de construção obteve aumento de 2,7% com relação ao trimestre passado, apresentando também forte expansão de 9,9% com relação ao 2T/2021 e de 10,5% no acumulado em 12 meses.
+#### Indústria
 
--   Os Serviços (Tabela 3), que representam 70% do valor adicionado da economia, tiveram expansão de 1,3% no 2T/2022. Todas as atividades, com exceção de APU, educação pública e saúde pública (-0,8%), apresentaram alta na margem, com destaque para Outros serviços (+3,3%), Transporte, armazenagem e correio (+3,0%) e Serviços de informação (+2,9%). Na comparação com o mesmo trimestre do ano anterior houve crescimento expressivo de 13,6%, assim como na comparação do acumulado em 12 meses, 12,3%, novamente com destaque positivo para Outros serviços (+12,3%), Transporte, armazenagem e correio (+10,9%) e Serviços de informação (+9,6%).
+Com participação de `r geral[geral$setores_e_subsetores == "Indústria", "Participação"] %>% as.numeric %>% number(accuracy = 0.1)`% no valor adicionado do trimestre anterior, a Indústria apresentou `r texto_crescim(valor("Indústria", "QoQ"), 2)` de `r valor("Indústria", "QoQ")`% no `r tri_anter`, `r texto_posicao("Indústria", "QoQ", "F")` consecutiva na margem. Houve também `r texto_crescim(valor("Indústria", "YoY"), 2)` de `r valor("Indústria", "QoQ")`% em relação ao `r tri_atual_ano_anter`, assim como `r texto_crescim(valor("Indústria", "YoY"), 3)` de `r valor("Indústria", "12m")`% no acumulado em 12 meses.
 
-```{r}
-#| echo: false
+#### Serviços
 
-pib_tri %>% 
-            filter(setores_e_subsetores %in% c("Agropecuária", "Indústria", "Serviços") & variavel == "QoQ Anualizado") %>% 
-            mutate(trimestre = factor(trimestre),
-                   trimestre = fct_reorder(trimestre, mes)) %>%
-            group_by(setores_e_subsetores) %>%
-            top_n(4, mes) %>% 
-            
-            {ggplot(., aes(x = trimestre, y = valor)) +
-                geom_col(aes(fill = trimestre), width = 0.7) +
-                facet_wrap(~ setores_e_subsetores, nrow = 1, strip.position = "bottom",  labeller = label_wrap_gen(10)) +
-                geom_hline(yintercept = 0) +
-                
-                labs(title = "**Gráfico 2. PIB pela Ótica da Oferta**",
-                     subtitle = "Var. % QoQ anualizada, com aj. sazonal",
-                     x = "", y = "", fill = "Trimestre") +
-                lightness(scale_fill_brewer(palette = "Blues"), scalefac(0.8)) +
-                geom_text(aes(y = valor, label = scales::number(valor, accuracy = 0.1), vjust = ifelse(valor > 0, -0.5, 1.5)), size = 5) +
-                
-                theme(plot.title = element_markdown(size = 23),
-                      plot.subtitle = element_markdown(size = 15, margin = margin(0,0,30,0)),
-                      plot.background = element_blank(),
-                      
-                      panel.background = element_blank(),
-                      panel.grid.major.y = element_line(linetype = "dotdash", colour = "grey", linewidth = 1),
-                      
-                      strip.text = element_text(size = 15),
-                      strip.background = element_rect(fill = "white"),
-                      strip.background.y = element_rect(fill = "black"),
-                      panel.spacing = unit(2, "lines"),
-                      
-                      axis.text.x = element_blank(),
-                      axis.ticks.x = element_blank(),
-                      axis.text.y = element_markdown(size = 15, colour = "black"),
-                      
-                      legend.position = c(0.8, 1.1),
-                      legend.direction = "horizontal",
-                      legend.title = element_blank(),
-                      legend.text = element_markdown(size = 13))}
-```
+Os Serviços, que representam `r geral[geral$setores_e_subsetores == "Serviços", "Participação"] %>% as.numeric %>% number(accuracy = 0.1)`% do valor adicionado da economia, tiveram `r texto_crescim(valor("Serviços", "QoQ"), 2)` de `r valor("Serviços", "QoQ")`% no `r tri_atual`. Na comparação com o mesmo trimestre do ano anterior houve `r texto_crescim(valor("Serviços", "YoY"), 2)` de `r valor("Serviços", "YoY")`% e, por fim, `r texto_crescim(valor("Serviços", "YoY"), 2)` de `r texto_crescim(valor("Serviços", "YoY"), 2)` no acumulado em 12 meses.
 
 ## Carry-Over
 
-O carregamento estatístico do 2T/2022 para o ano de 2022 ficou em +2,6%, ou seja, se o PIB apresentar crescimento zero nos próximos trimestres de 2022, teríamos um crescimento contratado de aproximadamente 2,6% no ano. Uma expansão de 3,0% no produto deste ano demandaria um crescimento de 0,5% na margem nos dois trimestres seguintes. Apesar do número positivo no 2T/2022 e da consequente melhora nas expectativas para o ano, espera-se uma desaceleração importante da economia a partir de 2023, quando alguns estímulos fiscais deixarão de vigorar, o processo de normalização do setor de serviços perderá força e a política monetária contracionista estará atingindo a atividade econômica mais fortemente. Utilizando a hipótese de que as medidas em curso ainda impulsionem um crescimento dessazonalizado no terceiro trimestre de 0,1% e que a economia se mantenha estável no quarto trimestre, o crescimento anual em 2023 chegaria a 2,7%. Considerando que parece razoável supor, à luz das tendências atuais, que essas sejam hipóteses mínimas de nível de atividade, podemos concluir que provavelmente o crescimento do PIB no ano se situará na faixa de 2,7% a 3,0%.
+O carregamento estatístico do `r tri_atual` para o ano ficou em `r carry_over %>% number(accuracy = 0.1)`%, ou seja, se o PIB apresentar crescimento zero nos próximos trimestres de `r ano_atual`, teríamos um `r texto_crescim(carry_over, 2)` contratado de aproximadamente `r carry_over %>% number(accuracy = 0.1)`% em `r ano_atual`. **Considerando o último dado disponível até a publlicação deste relatório, o mercado projeta crescimento de 2,95% para o ano de `r ano_atual` (Focus/BCB), o que implicitamente representa expansão de 0.4% na margem para o quarto trimestre.**

@@ -11,7 +11,8 @@
   if (!require("pacman")) {install.packages("pacman")} else {library(pacman)}
   p_load(rbcb, sidrar,
          tidyverse, magrittr, janitor, rlang, gt, gtExtras, glue, 
-         fontawesome, bstfun, pBrackets, ggtext, shades, remotes) 
+         fontawesome, bstfun, pBrackets, ggtext, shades, remotes,
+         scales, ggiraph, forcats) 
   p_loaded()  
   # remotes::install_github("ddsjoberg/bstfun")
   # remotes::install_github("cararthompson/ophelia", auth_token = "the-secret-authorisation-token")
@@ -34,15 +35,20 @@
   
   # [valor] Buscar taxa de uma variável em determinada métrica
   valor <- function(setores_e_subsetores = "PIB (pm)", variavel = "QoQ") {
-              geral[geral$setores_e_subsetores == setores_e_subsetores, variavel] %>% round(2)
+              geral[geral$setores_e_subsetores == setores_e_subsetores, variavel] %>% as.numeric %>% number(accuracy = 0.1)
             }
  
   
   # [texto] Buscar texto de crescimento/contração
   texto_crescim <- function(valor, num) {
-                      case_when(num == 1 ~ ifelse(valor > 0, "cresceu", "contraiu"),
+                      valor = as.numeric(valor)
+                      case_when(num == 1 ~ ifelse(valor > 0, "cresceu"    , "contraiu"),
                                 num == 2 ~ ifelse(valor > 0, "crescimento", "decrescimento"),
-                                num == 3 ~ ifelse(valor > 0, "expansão", "contração"))
+                                num == 3 ~ ifelse(valor > 0, "expansão"   , "contração"),
+                                num == 4 ~ ifelse(valor > 0, "positivo"   , "negativo"),
+                                num == 5 ~ ifelse(valor > 0, "expandindo" , "contraindo"),
+                                num == 6 ~ ifelse(valor > 0, "expansão"   , "queda"),
+                                num == 7 ~ ifelse(valor > 0, "acima"      , "abaixo"))
                     }   
   
   
@@ -86,62 +92,61 @@
   # Demanda  
   sub_demanda = c("Consumo das Famílias", "Consumo do Governo", "FBCF", "Exportação", "Importação (-)")
   
-  pib_tri = list( get_sidra(api = "/t/1621/n1/all/v/all/p/all/c11255/all/d/v584%202") %>% 
+  pib_tri = list(
+                  get_sidra(api = "/t/1621/n1/all/v/all/p/all/c11255/all/d/v584%202") %>% 
                     clean_names() %>% 
-                    mutate(mes = case_when(substr(trimestre_codigo, 5, 6) == "01" ~ as.Date(paste0(substr(trimestre_codigo, 1, 4), "-03-01")),
-                                           substr(trimestre_codigo, 5, 6) == "02" ~ as.Date(paste0(substr(trimestre_codigo, 1, 4), "-06-01")),
-                                           substr(trimestre_codigo, 5, 6) == "03" ~ as.Date(paste0(substr(trimestre_codigo, 1, 4), "-09-01")),
-                                           substr(trimestre_codigo, 5, 6) == "04" ~ as.Date(paste0(substr(trimestre_codigo, 1, 4), "-12-01"))),
-                           trimestre = case_when(substr(trimestre_codigo, 5, 6) == "01" ~ paste0(substr(trimestre_codigo, 1, 4), ".I"),
-                                                 substr(trimestre_codigo, 5, 6) == "02" ~ paste0(substr(trimestre_codigo, 1, 4), ".II"),
-                                                 substr(trimestre_codigo, 5, 6) == "03" ~ paste0(substr(trimestre_codigo, 1, 4), ".III"),
-                                                 substr(trimestre_codigo, 5, 6) == "04" ~ paste0(substr(trimestre_codigo, 1, 4), ".IV"))) %>% 
-                    select(mes, trimestre, setores_e_subsetores, `Número-índice` = valor) %>% 
-                    group_by(setores_e_subsetores) %>% 
-                    mutate(QoQ = ((`Número-índice` / lag(`Número-índice`, 1)) - 1) * 100) %>% 
+                    select(trimestre, trimestre_codigo, setores_e_subsetores, `Número-índice` = valor) %>% 
+                    mutate(QoQ = ((`Número-índice` / lag(`Número-índice`, 1)) - 1) * 100,
+                           .by = setores_e_subsetores) %>% 
                     pivot_longer(cols = 4:5, names_to = "variavel", values_to = "valor") %>% 
-                    select(mes, trimestre, variavel, setores_e_subsetores, valor),
+                    select(trimestre_codigo, variavel, setores_e_subsetores, valor),
                   
                   get_sidra(api = "/t/5932/n1/all/v/6561,6562,6563/p/all/c11255/all/d/v6561%201,v6562%201,v6563%201") %>%
                     clean_names() %>%
                     mutate(variavel = case_when(grepl("Taxa trimestral", variavel)                     ~ "YoY",
                                                 grepl("Taxa acumulada em quatro trimestres", variavel) ~ "12m",
                                                 grepl("Taxa acumulada ao longo do ano", variavel)      ~ "YTD",
-                                                T ~ as.character(variavel)),
-                           mes = case_when(substr(trimestre_codigo, 5, 6) == "01" ~ as.Date(paste0(substr(trimestre_codigo, 1, 4), "-03-01")),
-                                           substr(trimestre_codigo, 5, 6) == "02" ~ as.Date(paste0(substr(trimestre_codigo, 1, 4), "-06-01")),
-                                           substr(trimestre_codigo, 5, 6) == "03" ~ as.Date(paste0(substr(trimestre_codigo, 1, 4), "-09-01")),
-                                           substr(trimestre_codigo, 5, 6) == "04" ~ as.Date(paste0(substr(trimestre_codigo, 1, 4), "-12-01"))),
-                           trimestre = case_when(substr(trimestre_codigo, 5, 6) == "01" ~ paste0(substr(trimestre_codigo, 1, 4), ".I"),
-                                                 substr(trimestre_codigo, 5, 6) == "02" ~ paste0(substr(trimestre_codigo, 1, 4), ".II"),
-                                                 substr(trimestre_codigo, 5, 6) == "03" ~ paste0(substr(trimestre_codigo, 1, 4), ".III"),
-                                                 substr(trimestre_codigo, 5, 6) == "04" ~ paste0(substr(trimestre_codigo, 1, 4), ".IV"))) %>% 
-                    select(mes, trimestre, variavel, setores_e_subsetores, valor)
-  ) %>% 
-    reduce(bind_rows) %>% 
-    mutate(setores_e_subsetores = case_when(setores_e_subsetores == "Agropecuária - total" ~ "Agropecuária",                                              
-                                            setores_e_subsetores == "Indústria - total" ~ "Indústria",                                                 
-                                            setores_e_subsetores == "Serviços - total" ~ "Serviços",                                                  
-                                            setores_e_subsetores == "Valor adicionado a preços básicos" ~ "Valor Adicionado (pb)",                                 
-                                            setores_e_subsetores == "PIB a preços de mercado" ~ "PIB (pm)",                                           
-                                            setores_e_subsetores == "Despesa de consumo das famílias" ~ "Consumo das Famílias",                                   
-                                            setores_e_subsetores == "Despesa de consumo da administração pública" ~ "Consumo do Governo",                       
-                                            setores_e_subsetores == "Formação bruta de capital fixo" ~ "FBCF",                                    
-                                            setores_e_subsetores == "Exportação de bens e serviços" ~ "Exportação",                                     
-                                            setores_e_subsetores == "Importação de bens e serviços (-)" ~ "Importação (-)",                                 
-                                            setores_e_subsetores == "Impostos líquidos sobre produtos" ~ "Impostos (líq. s/ prod.)",
-                                            T ~ as.character(setores_e_subsetores)),
-           setores_e_subsetores = factor(setores_e_subsetores, levels = c("Agropecuária", "Indústria", sub_industria, "Serviços", sub_servicos,
-                                                                          sub_demanda,
-                                                                          "Valor Adicionado (pb)", "Impostos (líq. s/ prod.)", "PIB (pm)"))) %>% 
-    pivot_wider(names_from = variavel, values_from = valor) %>% 
-    mutate(trimestre = case_when(str_extract(trimestre, '(?<=\\.).*') == "I"   ~ str_c("1T/", str_extract(trimestre, '.*(?=\\.)')),
-                                 str_extract(trimestre, '(?<=\\.).*') == "II"  ~ str_c("2T/", str_extract(trimestre, '.*(?=\\.)')),
-                                 str_extract(trimestre, '(?<=\\.).*') == "III" ~ str_c("3T/", str_extract(trimestre, '.*(?=\\.)')),
-                                 str_extract(trimestre, '(?<=\\.).*') == "IV"  ~ str_c("4T/", str_extract(trimestre, '.*(?=\\.)'))),
-           `QoQ Anualizado` = (((1 + (QoQ / 100)) ^ 4) - 1) * 100, .after = QoQ) %>% 
-    pivot_longer(cols = 4:9, names_to = "variavel", values_to = "valor")
-  
+                                                T ~ as.character(variavel))) %>% 
+                    select(trimestre_codigo, variavel, setores_e_subsetores, valor),
+                  
+                  get_sidra(api = "/t/1846/n1/all/v/all/p/all/c11255/all/d/v585%200") %>% 
+                    clean_names() %>% 
+                    filter(setores_e_subsetores != "Variação de estoque") %>% 
+                    select(trimestre_codigo, setores_e_subsetores, valor) %>% 
+                    mutate(valor = (valor / valor[setores_e_subsetores == "PIB a preços de mercado"] * 100), #%>% round(1),
+                           variavel = "Participação", 
+                           .by = trimestre_codigo)
+                ) %>% 
+            reduce(bind_rows) %>% 
+            mutate(mes = case_when(substr(trimestre_codigo, 5, 6) == "01" ~ as.Date(str_c(substr(trimestre_codigo, 1, 4), "-03-01")),
+                                   substr(trimestre_codigo, 5, 6) == "02" ~ as.Date(str_c(substr(trimestre_codigo, 1, 4), "-06-01")),
+                                   substr(trimestre_codigo, 5, 6) == "03" ~ as.Date(str_c(substr(trimestre_codigo, 1, 4), "-09-01")),
+                                   substr(trimestre_codigo, 5, 6) == "04" ~ as.Date(str_c(substr(trimestre_codigo, 1, 4), "-12-01"))),
+                   trimestre = case_when(substr(trimestre_codigo, 5, 6) == "01" ~ str_c("1T/", substr(trimestre_codigo, 1, 4)),
+                                         substr(trimestre_codigo, 5, 6) == "02" ~ str_c("2T/", substr(trimestre_codigo, 1, 4)),
+                                         substr(trimestre_codigo, 5, 6) == "03" ~ str_c("3T/", substr(trimestre_codigo, 1, 4)),
+                                         substr(trimestre_codigo, 5, 6) == "04" ~ str_c("4T/", substr(trimestre_codigo, 1, 4))),
+                   .before = trimestre_codigo) %>% 
+            select(-trimestre_codigo) %>% 
+            mutate(setores_e_subsetores = case_when(setores_e_subsetores == "Agropecuária - total" ~ "Agropecuária",                                              
+                                                    setores_e_subsetores == "Indústria - total" ~ "Indústria",                                                 
+                                                    setores_e_subsetores == "Serviços - total" ~ "Serviços",                                                  
+                                                    setores_e_subsetores == "Valor adicionado a preços básicos" ~ "Valor Adicionado (pb)",                                 
+                                                    setores_e_subsetores == "PIB a preços de mercado" ~ "PIB (pm)",                                           
+                                                    setores_e_subsetores == "Despesa de consumo das famílias" ~ "Consumo das Famílias",                                   
+                                                    setores_e_subsetores == "Despesa de consumo da administração pública" ~ "Consumo do Governo",                       
+                                                    setores_e_subsetores == "Formação bruta de capital fixo" ~ "FBCF",
+                                                    setores_e_subsetores == "Variação de estoque" ~ "Var. Estoques",
+                                                    setores_e_subsetores == "Exportação de bens e serviços" ~ "Exportação",                                     
+                                                    setores_e_subsetores == "Importação de bens e serviços (-)" ~ "Importação (-)",                                 
+                                                    setores_e_subsetores == "Impostos líquidos sobre produtos" ~ "Impostos (líq. s/ prod.)",
+                                                    T ~ as.character(setores_e_subsetores)),
+                   setores_e_subsetores = factor(setores_e_subsetores, levels = c("Agropecuária", "Indústria", sub_industria, "Serviços", sub_servicos,
+                                                                                  "Valor Adicionado (pb)", "Impostos (líq. s/ prod.)", "PIB (pm)",
+                                                                                  sub_demanda))) %>% 
+            pivot_wider(names_from = variavel, values_from = valor) %>%
+            mutate(`QoQ Anualizado` = (((1 + (QoQ / 100)) ^ 4) - 1) * 100, .after = QoQ) %>% 
+            pivot_longer(cols = 4:length(.), names_to = "variavel", values_to = "valor")
   
   
   
@@ -155,6 +160,8 @@
   tri_anter     = pib_tri %>% filter(mes == nth(unique(mes), 2, order_by = desc(unique(mes)))) %>% pull(trimestre) %>% unique
   tri_anter_num = substr(tri_anter, 1, 1)
   ano_anter     = (as.numeric(ano_atual) - 1) %>% as.character
+  
+  tri_atual_ano_anter = str_c(tri_atual_num, "T/", ano_anter)
   
   
   
@@ -173,12 +180,14 @@
   
   ## Tabela Geral ----
   
-  geral = pib_tri %>% 
-          filter(setores_e_subsetores %in% c("Agropecuária", "Indústria", "Serviços", "PIB (pm)", sub_demanda, "Valor Adicionado (pb)", "Impostos (líq. s/ prod.)"),
-                 mes == max(mes),
-                 variavel != "Número-índice") %>% 
-          pivot_wider(names_from = "variavel", values_from = "valor") %>%
-          arrange(setores_e_subsetores) 
+  geral = pib_tri %>%
+            filter(trimestre == tri_atual & !(variavel %in% c("Número-índice", "Participação")) | 
+                   trimestre == tri_anter & variavel %in% c("Participação")) %>%
+            select(-mes) %>% 
+            mutate(trimestre = ifelse(trimestre == tri_anter, tri_atual, trimestre)) %>% 
+            pivot_wider(names_from = "variavel", values_from = "valor") %>% 
+            relocate(Participação, .before = QoQ) %>% 
+            arrange(setores_e_subsetores)   
   
   
   
@@ -186,7 +195,7 @@
   ## Crescimento/Contração Consecutivos ----
   
   pos = pib_tri %>% 
-        filter(variavel != "Número-índice", !is.na(valor)) %>% 
+        filter(!(variavel %in% c("Número-índice", "Participação")), !is.na(valor)) %>% 
         group_by(setores_e_subsetores, variavel) %>% 
         mutate(position = coalesce(accumulate(ifelse(sign(valor) - lag(sign(valor)) != 0 | row_number() == 1, 1, NA),
                                               ~ ifelse(is.na(.y), .x + 1, .y))),
@@ -194,3 +203,33 @@
                                  ifelse(sign(valor) < 0, paste(position, "neg"), 'zero'))) %>% 
         filter(mes == max(mes)) %>% 
         pivot_wider(id_cols = 1:3, names_from = variavel, values_from = position)
+
+  
+  
+  
+  ## Carry-Over
+  
+  carry_over = rbind(
+                      pib_tri %>% 
+                      filter(grepl(str_c(ano_atual, "|", ano_anter), trimestre), 
+                             setores_e_subsetores == "PIB (pm)",
+                             variavel == "Número-índice") %>% 
+                      ungroup(),
+                      
+                      tibble(mes = outer(outer(ano_atual, c("-03", "-06", "-09", "-12"), str_c) %>% as.vector,
+                                         "-01", str_c) %>% as.Date %>% sort,
+                             trimestre = outer(outer(seq(1:4), "T/", str_c) %>% as.vector, 
+                                               ano_atual, str_c) %>% as.vector,
+                             setores_e_subsetores = rep("PIB (pm)", 4),
+                             variavel = rep("Número-índice", 4),
+                             valor = rep(NA, 4)) %>%
+                      mutate(trimestre = factor(fct_reorder(trimestre, mes), ordered = T)) %>% 
+                      filter(trimestre > tri_atual)
+                    ) %>% 
+            
+               fill(valor, .direction = "down") %>%
+               mutate(year = year(mes)) %>%
+               summarise(soma = sum(valor), .by = year) %>% 
+               pull(soma) %>%
+               {((.[2] / .[1]) - 1) * 100} %>% round(2)
+  
